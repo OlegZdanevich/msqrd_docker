@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: db-service
+  #For local use change this params
+  datasource:
+    url: jdbc:postgresql://pgpool:5432/msqrd
+    username: monkey_user
+    password: monkey_pass
+
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+      naming-strategy: org.hibernate.cfg.ImprovedNamingStrategy
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+server:
+  port: @port@
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://msqrd-eureka-server:8761/eureka/

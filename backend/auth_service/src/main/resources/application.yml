@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: auth-service
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            clientId: 184226576985-v6jc3pohj876rpm2vlep3s6koa2dcuke.apps.googleusercontent.com
+            clientSecret: vNfb2VMkJGfjWaCwz5B2MNZh
+            redirectUri: http://localhost:8050/auth-service/oauth2/callback/google
+            scope:
+              - email
+              - profile
+              - openid
+              - https://www.googleapis.com/auth/photoslibrary
+server:
+  port: @port@
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://msqrd-eureka-server:8761/eureka/
+
+app:
+  auth:
+    tokenSecret: 926D96C90030DD58429D2751AC1BDBBC
+    tokenExpirationMsec: 864000000
+  oauth2:
+    authorizedRedirectUris:
+      - http://localhost:3000/oauth2/redirect

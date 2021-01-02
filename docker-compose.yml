@@ -1,0 +1,345 @@
+version: '2'
+networks:
+    cluster:
+        driver: bridge
+        internal: true
+    external_db:
+        driver: bridge
+    backEnd:
+        driver: bridge
+        internal: true
+    modules_loader:
+        driver: bridge
+    admin_backend:
+        driver: bridge
+    link_db:
+        driver: bridge
+        internal: true
+    front_end:
+        driver: bridge
+
+
+
+
+volumes:
+    pgmaster:
+    pgslave1:
+    pgslave2:
+    pgslave3:
+    pgslave4:
+
+services:
+    pgmaster:
+        image: postdock/postgres:latest-postgres11-repmgr40
+        environment:
+            NODE_ID: 1
+            NODE_NAME: node1
+            CLUSTER_NODE_NETWORK_NAME: pgmaster
+            
+            PARTNER_NODES: "pgmaster,pgslave1,pgslave3"
+            REPLICATION_PRIMARY_HOST: pgmaster
+            
+            NODE_PRIORITY: 100
+            SSH_ENABLE: 1
+            POSTGRES_PASSWORD: monkey_pass
+            POSTGRES_USER: monkey_user
+            POSTGRES_DB: msqrd
+            CLEAN_OVER_REWIND: 0
+            CONFIGS_DELIMITER_SYMBOL: ;
+            CONFIGS: "listen_addresses:'*';max_replication_slots:10"
+            CLUSTER_NAME: pg_cluster
+            REPLICATION_DB: replication_db
+            REPLICATION_USER: replication_user
+            REPLICATION_PASSWORD: replication_pass
+            
+        ports:
+            - 5422:5432
+        volumes:
+            - pgmaster:/var/lib/postgresql/data
+            - ./db/ssh/:/tmp/.ssh/keys
+        networks:
+            cluster:
+                aliases:
+                    - pgmaster
+    pgslave1:
+        image: postdock/postgres:latest-postgres11-repmgr40
+        environment:
+            NODE_ID: 2
+            NODE_NAME: node2
+            CLUSTER_NODE_NETWORK_NAME: pgslave1
+            SSH_ENABLE: 1
+            PARTNER_NODES: "pgmaster,pgslave1,pgslave3"
+            REPLICATION_PRIMARY_HOST: pgmaster
+            CLEAN_OVER_REWIND: 1
+            CONFIGS_DELIMITER_SYMBOL: ;
+            CONFIGS: "max_replication_slots:10" #some overrides
+        ports:
+            - 5441:5432
+        volumes:
+            - pgslave1:/var/lib/postgresql/data
+            - ./db/ssh:/tmp/.ssh/keys
+        networks:
+            cluster:
+                aliases:
+                    - pgslave1
+
+    pgslave2:
+        image: postdock/postgres:latest-postgres11-repmgr40
+        environment:
+            NODE_ID: 3
+            NODE_NAME: node3
+            CLUSTER_NODE_NETWORK_NAME: pgslave2
+
+            REPLICATION_PRIMARY_HOST: pgslave1
+            CONFIGS_DELIMITER_SYMBOL: ;
+            CONFIGS: "listen_addresses:'*'"
+        ports:
+            - 5442:5432
+        volumes:
+            - pgslave2:/var/lib/postgresql/data
+        networks:
+            cluster:
+                aliases:
+                    - pgslave2
+    pgslave3:
+        image: postdock/postgres:latest-postgres11-repmgr40
+        environment:
+            NODE_ID: 4
+            NODE_NAME: node4
+            CLUSTER_NODE_NETWORK_NAME: pgslave3
+            SSH_ENABLE: 1
+            PARTNER_NODES: "pgmaster,pgslave1,pgslave3"
+            REPLICATION_PRIMARY_HOST: pgmaster
+            NODE_PRIORITY: 200
+            CLEAN_OVER_REWIND: 1
+            CONFIGS_DELIMITER_SYMBOL: ;
+            CONFIGS: "listen_addresses:'*'"
+        ports:
+            - 5443:5432
+        volumes:
+            - pgslave3:/var/lib/postgresql/data
+            - ./db/ssh:/tmp/.ssh/keys
+        networks:
+            cluster:
+                aliases:
+                    - pgslave3
+
+    pgslave4:
+        image: postdock/postgres:latest-postgres11-repmgr40
+        environment:
+            NODE_ID: 5
+            NODE_NAME: node5
+            CLUSTER_NODE_NETWORK_NAME: pgslave4
+            REPLICATION_PRIMARY_HOST: pgslave3
+            CONFIGS_DELIMITER_SYMBOL: ;
+            CONFIGS: "listen_addresses:'*'"
+        ports:
+            - 5444:5432
+        volumes:
+            - pgslave4:/var/lib/postgresql/data
+        networks:
+            cluster:
+                aliases:
+                    - pgslave4
+    pgpool:
+        container_name: pgpool
+        image: postdock/pgpool:latest-pgpool37-postgres11
+        environment:
+            PCP_USER: pcp_user
+            PCP_PASSWORD: pcp_pass
+            WAIT_BACKEND_TIMEOUT: 60
+
+            CHECK_USER: monkey_user
+            CHECK_PASSWORD: monkey_pass
+            CHECK_PGCONNECT_TIMEOUT: 3
+            SSH_ENABLE: 1
+            DB_USERS: monkey_user:monkey_pass
+            BACKENDS: "0:pgmaster:5432:1:/var/lib/postgresql/data:ALLOW_TO_FAILOVER,1:pgslave1::::,3:pgslave3::::,2:pgslave2::::"
+            REQUIRE_MIN_BACKENDS: 3
+            CONFIGS: "num_init_children:250,max_pool:4"
+        ports:
+            - 5432:5432
+            - 9898:9898
+        volumes:
+            - ./db/ssh:/tmp/.ssh/keys
+        networks:
+            - external_db
+            - cluster
+            - link_db
+    msqrd-eureka-server:
+        container_name: msqrd-eureka-server
+        image: msqrd-eureka-server:0.1
+        build:
+            context: backend/msqrd-eureka-server
+        ports:
+            - 8761:8761
+        networks:
+            - admin_backend
+            - backEnd
+            - modules_loader
+    msqrd-edge-server:
+        container_name: msqrd-edge-server
+        image: msqrd-edge-server:0.1
+        build:
+            context: backend/msqrd-edge-server
+        ports:
+            - 8050:8050
+        depends_on:
+            - msqrd-eureka-server
+        networks:
+            - backEnd
+            - modules_loader
+    db_service_81:
+        container_name: db_service_81
+        image: db_service_81:0.1
+        build:
+            context: backend/db_service
+        ports:
+            - 8081:8081
+        environment:
+            - "SPRING_PROFILES_ACTIVE=in1"
+            - "SERVER_PORT=8081"
+        depends_on:
+            - msqrd-edge-server
+        networks:
+            - backEnd
+            - link_db
+            - modules_loader
+    db_service_82:
+        container_name: db_service_82
+        image: db_service_82:0.1
+        build:
+            context: backend/db_service
+        ports:
+            - 8082:8082
+        environment:
+            - "SPRING_PROFILES_ACTIVE=in2"
+            - "SERVER_PORT=8082"
+        depends_on:
+            - msqrd-edge-server
+        networks:
+            - backEnd
+            - link_db
+            - modules_loader
+    auth_service_41:
+        container_name: auth_service_41
+        image: auth_service_41:0.1
+        build:
+            context: .
+            dockerfile: ./backend/auth_service/Dockerfile
+        environment:
+            - "SPRING_PROFILES_ACTIVE=in1"
+            - "SERVER_PORT=8041"
+        ports:
+            - 8041:8041
+        depends_on:
+            - db_service_81
+            - db_service_82
+        networks:
+            - backEnd
+            - modules_loader
+    auth_service_42:
+        container_name: auth_service_42
+        image: auth_service_42:0.1
+        build:
+            context: .
+            dockerfile: ./backend/auth_service/Dockerfile
+        ports:
+            - 8042:8042
+        environment:
+            - "SPRING_PROFILES_ACTIVE=in2"
+            - "SERVER_PORT=8042"
+        depends_on:
+            - db_service_81
+            - db_service_82
+        networks:
+            - backEnd
+            - modules_loader
+    rabbitmq:
+        image: rabbitmq:3-management-alpine
+        container_name: rabbitmq
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: admin
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        networks:
+            - backEnd
+            - admin_backend
+    user_service_31:
+        container_name: user_service_31
+        image: user_service_31:0.1
+        build:
+            context: .
+            dockerfile: ./backend/user_service/Dockerfile
+        ports:
+            - 8031:8031
+        environment:
+            - "SPRING_PROFILES_ACTIVE=in1"
+            - "SERVER_PORT=8031"
+        depends_on:
+            - auth_service_41
+            - auth_service_42
+        networks:
+            - backEnd
+            - modules_loader
+    user_service_32:
+        container_name: user_service_32
+        image: user_service_32:0.1
+        build:
+            context: .
+            dockerfile: ./backend/user_service/Dockerfile
+        ports:
+            - 8032:8032
+        depends_on:
+            - auth_service_41
+            - auth_service_42
+        environment:
+            - "SPRING_PROFILES_ACTIVE=in2"
+            - "SERVER_PORT=8032"
+        networks:
+            - backEnd
+            - modules_loader
+    mask_service_1:
+        container_name: mask_service_1
+        image: mask_service_1:0.1
+        restart: on-failure
+        build:
+            context: backend/mask_service
+        depends_on:
+            - rabbitmq
+            - user_service_31
+            - user_service_32
+        networks:
+            - backEnd
+            - modules_loader
+    mask_service_2:
+        container_name: mask_service_2
+        image: mask_service_2:0.1
+        restart: on-failure
+        build:
+            context: backend/mask_service
+        depends_on:
+            - rabbitmq
+            - user_service_31
+            - user_service_32
+        networks:
+            - backEnd
+            - modules_loader
+    client:
+        container_name: client
+        image: client:0.1
+        build:
+            context: frontend/client
+        ports:
+             - 3000:3000
+        networks:
+            - front_end
+
+            
+
+
+
+
+
