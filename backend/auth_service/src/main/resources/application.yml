@@ -20,7 +20,7 @@ server:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://msqrd-eureka-server:8761/eureka/
+      defaultZone: http://@eurika.url@:8761/eureka/
 
 app:
   auth:

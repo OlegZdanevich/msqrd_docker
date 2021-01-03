@@ -41,6 +41,23 @@
                 <port>8082</port>
             </properties>
         </profile>
+        <profile>
+            <id>test</id>
+            <properties>
+                <eurika.url>localhost</eurika.url>
+                <db.url>localhost</db.url>
+            </properties>
+        </profile>
+        <profile>
+            <id>prod</id>
+            <properties>
+                <eurika.url>msqrd-eureka-server</eurika.url>
+                <db.url>pgpool</db.url>
+            </properties>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
     </profiles>
 
     <dependencyManagement>

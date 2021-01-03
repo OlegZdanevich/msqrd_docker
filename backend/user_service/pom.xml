@@ -33,6 +33,21 @@
                 <port>8032</port>
             </properties>
         </profile>
+        <profile>
+            <id>test</id>
+            <properties>
+                <eurika.url>localhost</eurika.url>
+            </properties>
+        </profile>
+        <profile>
+            <id>prod</id>
+            <properties>
+                <eurika.url>msqrd-eureka-server</eurika.url>
+            </properties>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
     </profiles>
 
     <properties>

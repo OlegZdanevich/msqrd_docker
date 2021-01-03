@@ -182,6 +182,8 @@ services:
         image: msqrd-edge-server:0.1
         build:
             context: backend/msqrd-edge-server
+        environment:
+            - "SPRING_PROFILES_ACTIVE=prod"
         ports:
             - 8050:8050
         depends_on:
@@ -197,7 +199,7 @@ services:
         ports:
             - 8081:8081
         environment:
-            - "SPRING_PROFILES_ACTIVE=in1"
+            - "SPRING_PROFILES_ACTIVE=prod"
             - "SERVER_PORT=8081"
         depends_on:
             - msqrd-edge-server
@@ -213,7 +215,7 @@ services:
         ports:
             - 8082:8082
         environment:
-            - "SPRING_PROFILES_ACTIVE=in2"
+            - "SPRING_PROFILES_ACTIVE=prod"
             - "SERVER_PORT=8082"
         depends_on:
             - msqrd-edge-server
@@ -228,7 +230,7 @@ services:
             context: .
             dockerfile: ./backend/auth_service/Dockerfile
         environment:
-            - "SPRING_PROFILES_ACTIVE=in1"
+            - "SPRING_PROFILES_ACTIVE=prod"
             - "SERVER_PORT=8041"
         ports:
             - 8041:8041
@@ -247,7 +249,7 @@ services:
         ports:
             - 8042:8042
         environment:
-            - "SPRING_PROFILES_ACTIVE=in2"
+            - "SPRING_PROFILES_ACTIVE=prod"
             - "SERVER_PORT=8042"
         depends_on:
             - db_service_81
@@ -276,7 +278,7 @@ services:
         ports:
             - 8031:8031
         environment:
-            - "SPRING_PROFILES_ACTIVE=in1"
+            - "SPRING_PROFILES_ACTIVE=prod"
             - "SERVER_PORT=8031"
         depends_on:
             - auth_service_41
@@ -296,7 +298,7 @@ services:
             - auth_service_41
             - auth_service_42
         environment:
-            - "SPRING_PROFILES_ACTIVE=in2"
+            - "SPRING_PROFILES_ACTIVE=prod"
             - "SERVER_PORT=8032"
         networks:
             - backEnd
